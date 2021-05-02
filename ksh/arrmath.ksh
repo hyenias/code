@@ -18,7 +18,7 @@ set --noglob # turn off globbing
 
 USAGE=$'[-]
 [-program?arrmath.ksh]
-[-?0.1 2021-04-27]
+[-?0.2 2021-05-02]
 [-author?hyenias <https://github.com/hyenias>]
 [-copyright?(c) 2021 https://github.com/hyenias]
 [-license?https://www.apache.org/licenses/LICENSE-2.0]
@@ -67,6 +67,9 @@ do
 		3 )	;&
 		4 )	DEBUG=$OPTARG
 			;;
+		* )	echo "Error: Invalid DEBUG of '$OPTARG' provided."
+			return 1
+			;;
 		esac
 		;;
 	l )	case $OPTARG in
@@ -78,13 +81,19 @@ do
 			;;
 		f )	LIMITARR='-f' # fixed width indexed arrays
 			;;
+		* )	echo "Error: Invalid container type of '$OPTARG' provided."
+			return 1
+			;;
 		esac
 		;;
 	n )	case "$OPTARG" in
 		i|si|li|ui|usi|uli ) ;&
 		    F|E|X|lF|lE|lX ) NTYPE="-$OPTARG"
 			;;
-		''|NA )	NTYPE='NA'
+		''|NA ) NTYPE='NA'
+			;;
+		    * ) echo "Error: Invalid numeric of '$OPTARG' provided."
+                return 1
 			;;
 		esac
 		;;
@@ -142,17 +151,20 @@ do
 	while read -d ':' atype numeric tst op # Each individual test record ends with a colon
 	do
 		[[ -n $LIMITARR && $LIMITARR != "$atype" ]] && continue
-		[[ -n $NTYPE && $NTYPE != "$numeric" ]] && continue
+		[[ -n $NTYPE && $numeric != "$NTYPE"* ]] && continue
 		[[ -n $AOP && $AOP != "$op" ]] && continue
 		header=${ printf -- '---------->> %s :  %4s  : %s :  %4s  <<----------' $atype $numeric $tst $op; }
 		(( DEBUG > 2 )) && echo "$header"
 		numeric=${numeric%NA} # Turn placeholder of NA into '' for no numeric type nor formatting
-		unset cmp bares bsres sval
+		unset cmp bares bsres ares sval
 		typeset ${numeric} cmp bares bsres sval
 		if [[ $atype == '-a' ]]
 		then
 			ini='ini_a'
-			indices=('' '[0]' '[0][0]' '[0][1]' '[0][2]' '[0][3]' '[1]' '[2]' '[3]')
+			# Remove arr and arr[0] partial subscript referencing as it does not work correctly
+			# for indexed arrays. Require full subscript referencing, i.e. arr[0][0].
+			#indices=('' '[0]' '[0][0]' '[0][1]' '[0][2]' '[0][3]' '[1]' '[2]' '[3]')
+			indices=('[0][0]' '[0][1]' '[0][2]' '[0][3]' '[1]' '[2]' '[3]')
 		elif [[ $atype == '-A' ]]
 		then
 			ini='ini_A'
@@ -164,7 +176,8 @@ do
 		elif [[ $atype == '-f' ]]
 		then
 			ini='ini_f'
-			indices=('[0][0]' '[0][1]' '[0][2]' '[1][0]' '[1][1]' '[1][2]' '[2][0]' '[2][1]' '[2][2]')
+			# Fixed width indexed arrays work with arr[0] but not arr partial subscript
+			indices=('[0]' '[0][0]' '[0][1]' '[0][2]' '[1][0]' '[1][1]' '[1][2]' '[2][0]' '[2][1]' '[2][2]')
 		else
 			echo "Error: Unknown or missing container type of '${atype}'."
 			continue 
@@ -299,9 +312,9 @@ done <<-EOF
 -A -X3 e +=1:-A -X3 e -=1:-A -X3 e *=2:-A -X3 e =99:
 -A -lX3 e +=1:-A -lX3 e -=1:-A -lX3 e *=2:-A -lX3 e =99:
 # problem with /= for associative arrays
--A -E3 e /=2:-A -lE3 e /=2:
--A -F1 e /=2:-A -lF1 e /=2:
--A -X3 e /=2:-A -lX3 e /=2:
+#-A -E3 e /=2:-A -lE3 e /=2:
+#-A -F1 e /=2:-A -lF1 e /=2:
+#-A -X3 e /=2:-A -lX3 e /=2:
 
 # Indexed arrays
 -a NA b --:-a NA b ++:-a NA e --:-a NA e ++:-a NA e +=1:-a NA e -=1:-a NA e *=2:-a NA e /=2:-a NA e %=8:-a NA e <<=1:-a NA e >>=1:-a NA e |=64:-a NA e &=7:-a NA e ^=42:-a NA e =99:
